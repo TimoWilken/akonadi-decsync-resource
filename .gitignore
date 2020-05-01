@@ -1,0 +1,16 @@
+bin/
+build/
+
+# CMake cache files etc.
+# from https://github.com/github/gitignore/blob/master/CMake.gitignore
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_comands.json
+CTestTestfile.cmake
+_deps

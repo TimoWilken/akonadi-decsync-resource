@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=DecSync Resource
+Comment=For reading contacts, calendars and feeds from DecSync
+Type=AkonadiResource
+Exec=akonadi_decsync_resource
+Icon=syncthing
+
+X-Akonadi-MimeTypes=text/directory,text/calendar,text/rss+xml
+X-Akonadi-Capabilities=Resource
+X-Akonadi-Identifier=akonadi_decsync_resource
