@@ -16,7 +16,7 @@ This will be an Akonadi resource that lets [[https://kde.org/applications/office
 
 This project started from a generated template; this is the documentation that came with it.
 
-** How To Build This Template
+** How to build this project
 *** On Linux & similar:
 
 #+BEGIN_SRC sh
@@ -25,15 +25,14 @@ This project started from a generated template; this is the documentation that c
   cd build
   cmake .. -DCMAKE_INSTALL_PREFIX=$MY_PREFIX -DCMAKE_BUILD_TYPE=Debug
   make
-  make install or su -c 'make install'
+  make install  # or su -c 'make install'
 #+END_SRC
 
-(~MY_PREFIX~ is where you install your Akonadi setup, replace it accordingly)
+(~MY_PREFIX~ is where you install your Akonadi setup, replace it accordingly.)
 
-to uninstall the project:
-~make uninstall~ or ~su -c 'make uninstall'~
+To uninstall the project: ~make uninstall~ or ~su -c 'make uninstall'~
 
-Note: you can use another build path. Then cd in your build dir and:
+Note: you can use another build path. Then ~cd~ into your build dir and:
 #+BEGIN_SRC sh
   export MY_SRC=path_to_your_src
   cmake $MY_SRC -DCMAKE_INSTALL_PREFIX=$MY_PREFIX -DCMAKE_BUILD_TYPE=Debug
@@ -50,13 +49,11 @@ Note: you can use another build path. Then cd in your build dir and:
   [n]make install
 #+END_SRC
 
-(~MY_PREFIX~ is where you install your Akonadi setup, replace it accordingly)
+(~MY_PREFIX~ is where you install your Akonadi setup, replace it accordingly.)
 
-to uninstall the project:
-~[n]make uninstall~
+To uninstall the project: ~[n]make uninstall~
 
-Note: use ~nmake~ if you're building with the Visual Studio compiler, or ~make~
-if you're using the minGW compiler
+Note: use ~nmake~ if you're building with the Visual Studio compiler, or ~make~ if you're using the minGW compiler.
 
 ** Implementation hints
 
