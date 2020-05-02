@@ -1,5 +1,4 @@
-/* -*- compile-command: "cd .. && cmake . -DCMAKE_BUILD_TYPE=debugfull && make"; c-basic-offset: 4; eval: (c-set-offset 'arglist-intro '+) -*-
- *
+/*
  * Copyright (C) 2020 by Timo Wilken <timo.21.wilken@gmail.com>
  *
  * This program is free software; you can redistribute it and/or
@@ -91,21 +90,11 @@ QString DecSyncResource::getLatestClientID(Akonadi::Collection collection)
 QMap<QString, QString> readEntry(QString entryFilePath)
 {
     QMap<QString, QString> dict;
-    // Json::CharReader jsonReader = Json::CharReaderBuilder().newCharReader();
     QFile file(entryFilePath);
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream stream(&file);
-        while (!stream.atEnd()) {
-            Json::Value array;
-            try {
-                std::istringstream(stream.readLine().toStdString()) >> array;
-                dict.insert(QString::fromStdString(array[1u].asString()),
-                            QString::fromStdString(array[2u].asString()));
-            } catch (const std::exception &e) {
-                qCWarning(log_decsyncresource,
-                          "error parsing JSON line from %s (line ignored): %s",
-                          entryFilePath.toStdString().data(), e.what());
-            }
+    if (file.open(QIODevice::ReadOnly)) {
+        while (!file.atEnd()) {
+            QJsonDocument line = QJsonDocument::fromBinaryData(file.readLine());
+            dict.insert(line[1].toString(), line[2].toString());
         }
         file.close();
     }
