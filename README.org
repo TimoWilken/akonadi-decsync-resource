@@ -70,9 +70,14 @@ However, there are a couple of things you will need to change outside the resour
 - ~X-Akonadi-MimeTypes~ field: if you are not writing a contact (addressbook) resource, you have to change this to either a known MIME type or one you install together with the resource. If your resource can provide data of more than one MIME type, you can specific all possible ones as a comma separate list.
 
   Common MIME types are:
-  * ~text/directory~: for contact data
-  * ~text/calendar~: for calendar data (there are Akonadi defined subtypes available, e.g. ~application/x-vnd.akonadi.calendar.event~)
-  * ~message/rfc822~: for e-mails and usenet news
+  - ~text/directory~: for contact data
+  - ~text/calendar~: for calendar data
+    - [[https://github.com/KDE/akonadi/blob/master/akonadi-mime.xml][Akonadi-defined subtypes]]:
+      - ~application/x-vnd.akonadi.calendar.event~
+      - ~application/x-vnd.akonadi.calendar.todo~
+      - ~application/x-vnd.akonadi.calendar.journal~
+      - ~application/x-vnd.akonadi.calendar.freebusy~
+  - ~message/rfc822~: for e-mails and usenet news
 
 The template comes with an input file for KDE's KConfigXT framework for improved configuration file handling. The generated class is called "Settings", so access to its data is provided through its singleton instance method ~Settings::self()~. See [[https://techbase.kde.org/Development/Tutorials/Using_KConfig_XT]].
 
