@@ -9,5 +9,6 @@ done
 unset startdir
 # run full build in PROJECT_ROOT/build to avoid CMake clutter
 cmake -S . -B build -DCMAKE_BUILD_TYPE=debugfull
+cd build
 make -k
 "))))
