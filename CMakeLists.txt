@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.1)
 
-project(decsync)
+project(akonadi_decsync_resource)
 
 set(KF5_MIN_VERSION "5.38.0")
 
