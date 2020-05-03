@@ -3,6 +3,7 @@ build/
 *_autogen/
 
 ecm_uninstall.cmake
+prefix.sh
 src/debug.cpp
 src/debug.h
 src/org.kde.Akonadi.*.Settings.xml
