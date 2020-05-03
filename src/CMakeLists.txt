@@ -27,6 +27,7 @@ add_executable(akonadi_decsync_resource ${decsyncresource_SRCS})
 set_target_properties(akonadi_decsync_resource PROPERTIES MACOSX_BUNDLE FALSE)
 
 target_link_libraries(akonadi_decsync_resource
+    decsync
     Qt5::DBus
     Qt5::Network
     KF5::AkonadiAgentBase

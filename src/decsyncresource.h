@@ -1,5 +1,4 @@
-/* -*- c-basic-offset: 4; -*-
- *
+/*
  * Copyright (C) 2020 by Timo Wilken <timo.21.wilken@gmail.com>
  *
  * This program is free software; you can redistribute it and/or
@@ -21,13 +20,30 @@
 
 #include <ResourceBase>
 
-struct calendar_t {
-    QString name;
-    QString color;
+#define APPID_LENGTH  256
+#define PATHSEP       QStringLiteral("/")
+
+// TODO: use Akonadi-defined calendar subtypes?
+const QMap<const char*, QStringList> COLLECTION_TYPES_AND_MIMETYPES({
+        {"calendars", {QStringLiteral("text/calendar")}},
+        {"contacts", {QStringLiteral("text/directory")}},
+        {"feeds", {QStringLiteral("text/rss+xml")}},
+    });
+
+/**
+ * An instance of this struct is passed to the function called by libdecsync
+ * when it reads an item. This lets our function create an item in the correct
+ * Akonadi::Item::List and with the correct MIME type.
+ */
+struct ItemListAndMime {
+    Akonadi::Item::List items;
+    const QString mime;
+    ItemListAndMime(Akonadi::Item::List list, const QString mimetype)
+        : items{list}, mime{mimetype} {}
 };
 
 class DecSyncResource : public Akonadi::ResourceBase,
-                        public Akonadi::AgentBase::Observer
+                        public Akonadi::AgentBase::ObserverV2
 {
     Q_OBJECT
 
@@ -41,21 +57,30 @@ public Q_SLOTS:
 protected Q_SLOTS:
     void retrieveCollections() override;
     void retrieveItems(const Akonadi::Collection &collection) override;
-    bool retrieveItems(const Akonadi::Item::List &items, const QSet<QByteArray> &parts) override;
+    bool retrieveItems(const Akonadi::Item::List &items,
+                       const QSet<QByteArray> &parts) override;
 
 protected:
     void aboutToQuit() override;
 
-    void itemAdded(const Akonadi::Item &item, const Akonadi::Collection &collection) override;
-    void itemChanged(const Akonadi::Item &item, const QSet<QByteArray> &parts) override;
+    void itemAdded(const Akonadi::Item &item,
+                   const Akonadi::Collection &collection) override;
+    void itemChanged(const Akonadi::Item &item,
+                     const QSet<QByteArray> &parts) override;
     void itemRemoved(const Akonadi::Item &item) override;
 
-    // TODO: override collection{Added,Changed,Removed}
+    void collectionAdded(const Akonadi::Collection &collection,
+                         const Akonadi::Collection &parent) override;
+    void collectionRemoved(const Akonadi::Collection &collection) override;
+
+    // Don't override the Akonadi::AgentBase::Observer version of this method,
+    // which has a different signature to the ObserverV2 method.
+    using Akonadi::AgentBase::ObserverV2::collectionChanged;
+    void collectionChanged(const Akonadi::Collection &collection,
+                           const QSet<QByteArray> &changedAttributes) override;
 
 private:
-    QString clientID;
-    QString getLatestClientID(Akonadi::Collection collection);
-    calendar_t getCalendarInfo(Akonadi::Collection calendar);
+    char appId[APPID_LENGTH];
 };
 
 #endif

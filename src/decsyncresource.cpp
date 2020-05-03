@@ -17,9 +17,9 @@
 
 #include "decsyncresource.h"
 
-#include "settings.h"
-#include "settingsadaptor.h"
-#include "debug.h"
+#include "../build/src/settings.h"
+#include "../build/src/settingsadaptor.h"
+#include "../build/src/debug.h"
 
 #include <QDBusConnection>
 #include <QUrl>
@@ -28,7 +28,7 @@
 
 #include <KLocalizedString>
 
-#include <json/json.h>
+#include <libdecsync.h>
 
 DecSyncResource::DecSyncResource(const QString &id)
     : ResourceBase(id)
@@ -39,138 +39,125 @@ DecSyncResource::DecSyncResource(const QString &id)
         Settings::self(),
         QDBusConnection::ExportAdaptors);
 
-    // UNIX-like, then Windows
-    QString userName = qEnvironmentVariable(
-        "USER", qEnvironmentVariable("USERNAME", QStringLiteral("nobody")));
+    setNeedsNetwork(false);
 
-    // Our DecSync client ID is <hostname>-akonadi-<user>. DecSyncCC (phone
-    // client) seems to call itself <hostname>-DecSyncCC, while Evolution calls
-    // itself <hostname>-Evolution-<N> for some integer N (what is this number?)
-    QString unsanitizedClientID =
-        QHostInfo::localHostName() + QStringLiteral("-akonadi-") + userName;
-    this->clientID = QString::fromUtf8(
-        unsanitizedClientID
-        .toUtf8()
-        .toPercentEncoding(QByteArrayLiteral(""), QByteArrayLiteral("~")));
-
-    qCDebug(log_decsyncresource, "Resource started");
-}
-
-DecSyncResource::~DecSyncResource()
-{
-}
-
-QString DecSyncResource::getLatestClientID(Akonadi::Collection collection)
-{
-    QString latestClientID;
-    QDateTime latestUpdate = QDateTime::fromSecsSinceEpoch(0, Qt::UTC);
-
-    QDirIterator infoIter(collection.remoteId() + QStringLiteral("/info"),
-                          QStringList(), QDir::Dirs | QDir::NoDotAndDotDot);
-    while (infoIter.hasNext()) {
-        infoIter.next();
-        if (infoIter.fileName() == this->clientID) {
-            continue;
-        }
-
-        QFile file(infoIter.filePath() + QStringLiteral("/last-stored-entry"));
-        file.open(QIODevice::ReadOnly);
-        QDateTime update = QDateTime::fromString(
-            QString::fromUtf8(file.readAll()).trimmed(), Qt::ISODate);
-        if (update > latestUpdate) {
-            latestUpdate = update;
-            latestClientID = infoIter.fileName();
-        }
-        file.close();
+    const int versionStatus = decsync_check_decsync_info(
+        qUtf8Printable(Settings::self()->decSyncDirectory()));
+    setOnline(!versionStatus);
+    if (versionStatus) {
+        const char* errorMessage =
+            versionStatus == 1 ? "libdecsync: %s: found invalid .decsync-version" :
+            versionStatus == 2 ? "libdecsync: %s: unsupported version" :
+            "libdecsync: %s: unknown error";
+        Q_EMIT status(Akonadi::AgentBase::Status::Broken, QString::fromUtf8(errorMessage));
+        qCCritical(log_decsyncresource, "%s", errorMessage);
+        setTemporaryOffline(60);
     }
 
-    return latestClientID;
+    decsync_get_app_id("akonadi", this->appId, APPID_LENGTH);
+    qCDebug(log_decsyncresource, "resource started with app ID %s", this->appId);
 }
 
-QMap<QString, QString> readEntry(QString entryFilePath)
-{
-    QMap<QString, QString> dict;
-    QFile file(entryFilePath);
-    if (file.open(QIODevice::ReadOnly)) {
-        while (!file.atEnd()) {
-            QJsonDocument line = QJsonDocument::fromBinaryData(file.readLine());
-            dict.insert(line[1].toString(), line[2].toString());
-        }
-        file.close();
-    }
-    if (file.error()) {
-        qCWarning(log_decsyncresource, "error 0x%x reading file %s",
-                  file.error(), entryFilePath.toStdString().data());
-    }
-    return dict;
-}
-
-calendar_t DecSyncResource::getCalendarInfo(Akonadi::Collection calendar)
-{
-    QMap<QString, QString> info = readEntry(
-        calendar.remoteId() + QStringLiteral("/stored-entries/") +
-        this->getLatestClientID(calendar) + QStringLiteral("/info"));
-
-    calendar_t result;
-    result.name = info.value(QStringLiteral("name"),
-                             QStringLiteral("<unnamed calendar>"));
-    result.color = info.value(QStringLiteral("color"),
-                              QStringLiteral("#ffff00"));
-    return result;
-}
+DecSyncResource::~DecSyncResource() {}
 
 void DecSyncResource::retrieveCollections()
 {
-    // TODO: this method is called when Akonadi wants to have all the
-    // collections your resource provides.
-    // Be sure to set the remote ID and the content MIME types
+    Akonadi::Collection::List collections;
 
-    const QUrl calendarDir = QUrl::fromLocalFile(
-        Settings::self()->decSyncDirectory() + QStringLiteral("/calendars"));
+    for (QMap<const char*, QStringList>::const_iterator type =
+             COLLECTION_TYPES_AND_MIMETYPES.constBegin();
+         type != COLLECTION_TYPES_AND_MIMETYPES.constEnd(); ++type) {
+#define MAX_COLLECTIONS 256
+        char names[MAX_COLLECTIONS][256];
+        int collectionsFound = decsync_list_decsync_collections(
+            qUtf8Printable(Settings::self()->decSyncDirectory()),
+            type.key(), (const char**)names, MAX_COLLECTIONS);
+#undef MAX_COLLECTIONS
 
-    Akonadi::Collection calendars;
-    calendars.setParentCollection(Akonadi::Collection::root());
-    calendars.setRemoteId(calendarDir.url());
-    calendars.setName(name());
-    calendars.setRights(Akonadi::Collection::Right::ReadOnly);
+        for (int i = 0; i < collectionsFound; ++i) {
+            Decsync sync;
+            if (int error = decsync_new(
+                    &sync, qUtf8Printable(Settings::self()->decSyncDirectory()),
+                    type.key(), names[i], this->appId)) {
+                qCWarning(log_decsyncresource,
+                          "failed to initialize DecSync %s collection %s: error %d",
+                          type.key(), names[i], error);
+                continue;
+            }
 
-    const QStringList calendarMimes(QStringLiteral("text/calendar"));
-    calendars.setContentMimeTypes(calendarMimes);
+            Akonadi::Collection coll;
+            coll.setParentCollection(Akonadi::Collection::root());
+            coll.setRemoteId(QString::fromUtf8(type.key()) + PATHSEP + QString::fromUtf8(names[i]));
+            coll.setContentMimeTypes(type.value());
+            coll.setRights(Akonadi::Collection::Right::ReadOnly);
 
-    Akonadi::Collection::List collections = { calendars };
+#define FRIENDLY_NAME_LENGTH 256
+            char friendlyName[FRIENDLY_NAME_LENGTH];
+            decsync_get_static_info(
+                qUtf8Printable(Settings::self()->decSyncDirectory()),
+                type.key(), names[i], "\"name\"", friendlyName, FRIENDLY_NAME_LENGTH);
+#undef FRIENDLY_NAME_LENGTH
 
-    QDirIterator iter(calendarDir.path(), QStringList(QStringLiteral("colID*")),
-                      QDir::Dirs | QDir::NoDotAndDotDot);
+            coll.setName(QString::fromUtf8(friendlyName));
 
-    while (iter.hasNext()) {
-        iter.next();
-        Akonadi::Collection calendar;
-        calendar.setParentCollection(calendars);
-        calendar.setRemoteId(calendarDir.url() + QStringLiteral("/") + iter.fileName());
-        // TODO: get name from calendars/colID.../stored-entries/<latest>/info
-        calendar.setName(iter.fileName());
-        calendar.setContentMimeTypes(calendarMimes);
-        calendar.setRights(Akonadi::Collection::Right::ReadOnly);
-        collections << calendar;
+            collections << coll;
+
+            decsync_free(sync);
+        }
     }
 
     collectionsRetrieved(collections);
 }
 
+void onEntryUpdate(const char** path, const int len, const char* datetime,
+                   const char* key, const char* value, void* extra)
+{
+    qCDebug(log_decsyncresource,
+            "got update notification, extra=%p path[0/%d]=%s datetime=%s key=%s value=%s",
+            extra, len, len ? path[0] : "<empty>", datetime, key, value);
+
+    QStringList pathComponents;
+    for (int i = 0; i < len; ++i) {
+        pathComponents << QString::fromUtf8(path[i]);
+    }
+
+    ItemListAndMime info = *static_cast<ItemListAndMime*>(extra);
+    Akonadi::Item item;
+    item.setRemoteId(pathComponents.join(PATHSEP));
+    item.setMimeType(info.mime);
+    item.setPayloadFromData(value);
+    info.items << item;
+}
+
 void DecSyncResource::retrieveItems(const Akonadi::Collection &collection)
 {
-    // TODO: this method is called when Akonadi wants to know about all the
-    // items in the given collection. You can but don't have to provide all the
-    // data for each item, remote ID and MIME type are enough at this stage.
-    // Depending on how your resource accesses the data, there are several
-    // different ways to tell Akonadi when you are done.
+    // This method is called when Akonadi wants to know about all the items in
+    // the given collection. You can but don't have to provide all the data for
+    // each item, remote ID and MIME type are enough at this stage.
 
-    Q_UNUSED(collection);
+    const char* collType = collection.remoteId().section(PATHSEP, 0, 0).toUtf8().constData();
+    const char* collName = collection.remoteId().section(PATHSEP, 1, 1).toUtf8().constData();
+
+    Decsync sync;
+    if (int error = decsync_new(
+            &sync, qUtf8Printable(Settings::self()->decSyncDirectory()),
+            collType, collName, this->appId)) {
+        Q_EMIT status(Akonadi::AgentBase::Status::Broken,
+                      QStringLiteral("failed to initialize DecSync collection"));
+        qCWarning(log_decsyncresource,
+                  "failed to initialize DecSync %s collection %s: error %d",
+                  collType, collName, error);
+        return;
+    }
+
+    decsync_add_listener(sync, {}, 0, onEntryUpdate);
+    decsync_init_stored_entries(sync);
 
     Akonadi::Item::List items;
+    ItemListAndMime info(items, COLLECTION_TYPES_AND_MIMETYPES[collType][0]);
+    decsync_execute_all_stored_entries_for_path_prefix(sync, {}, 0, (void*)&info);
 
-    const QStringList calendarMimes(QStringLiteral("text/calendar"));
-
+    decsync_free(sync);
     itemsRetrieved(items);
 }
 
@@ -185,32 +172,33 @@ bool DecSyncResource::retrieveItems(const Akonadi::Item::List &items, const QSet
 
 void DecSyncResource::aboutToQuit()
 {
-    // TODO: any cleanup you need to do while there is still an active
-    // event loop. The resource will terminate after this method returns
+    // Any cleanup you need to do while there is still an active event loop. The
+    // resource will terminate after this method returns.
 }
 
 void DecSyncResource::configure(WId windowId)
 {
-    // TODO: this method is usually called when a new resource is being
-    // added to the Akonadi setup. You can do any kind of user interaction here,
-    // e.g. showing dialogs.
-    // The given window ID is usually useful to get the correct
-    // "on top of parent" behavior if the running window manager applies any kind
-    // of focus stealing prevention technique
+    // This method is usually called when a new resource is being added to the
+    // Akonadi setup. You can do any kind of user interaction here, e.g. showing
+    // dialogs.
+    //
+    // The given window ID is usually useful to get the correct "on top of
+    // parent" behavior if the running window manager applies any kind of focus
+    // stealing prevention technique.
     //
     // If the configuration dialog has been accepted by the user by clicking Ok,
     // the signal configurationDialogAccepted() has to be emitted, otherwise, if
     // the user canceled the dialog, configurationDialogRejected() has to be emitted.
     Q_UNUSED(windowId);
 
-    const QString
-        oldPath = Settings::self()->decSyncDirectory(),
-        newPath = QFileDialog::getExistingDirectory(
-            nullptr,
-            i18nc("@title:window", "Select DecSync folder"),
-            QUrl::fromLocalFile(oldPath.isEmpty() ? QDir::homePath() : oldPath).path());
+    const QString oldPath = Settings::self()->decSyncDirectory();
+    const QString newPath = QFileDialog::getExistingDirectory(
+        nullptr,
+        i18nc("@title:window", "Select DecSync folder"),
+        QUrl::fromLocalFile(oldPath.isEmpty() ? QDir::homePath() : oldPath).path());
 
-    if (newPath.isEmpty() || oldPath == newPath) {
+    if (newPath.isEmpty() || oldPath == newPath ||
+        decsync_check_decsync_info(qUtf8Printable(newPath)) != 0) {
         configurationDialogRejected();
         return;
     }
@@ -235,28 +223,38 @@ void DecSyncResource::configure(WId windowId)
 
 void DecSyncResource::itemAdded(const Akonadi::Item &item, const Akonadi::Collection &collection)
 {
-    // TODO: this method is called when somebody else, e.g. a client application,
-    // has created an item in a collection managed by your resource.
-
     Q_UNUSED(item);
     Q_UNUSED(collection);
 }
 
 void DecSyncResource::itemChanged(const Akonadi::Item &item, const QSet<QByteArray> &parts)
 {
-    // TODO: this method is called when somebody else, e.g. a client application,
-    // has changed an item managed by your resource.
-
     Q_UNUSED(item);
     Q_UNUSED(parts);
 }
 
 void DecSyncResource::itemRemoved(const Akonadi::Item &item)
 {
-    // TODO: this method is called when somebody else, e.g. a client application,
-    // has deleted an item managed by your resource.
-
     Q_UNUSED(item);
+}
+
+void DecSyncResource::collectionAdded(const Akonadi::Collection &collection,
+                                      const Akonadi::Collection &parent)
+{
+    Q_UNUSED(collection);
+    Q_UNUSED(parent);
+}
+
+void DecSyncResource::collectionChanged(const Akonadi::Collection &collection,
+                                        const QSet<QByteArray> &changedAttributes)
+{
+    Q_UNUSED(collection);
+    Q_UNUSED(changedAttributes);
+}
+
+void DecSyncResource::collectionRemoved(const Akonadi::Collection &collection)
+{
+    Q_UNUSED(collection);
 }
 
 AKONADI_RESOURCE_MAIN(DecSyncResource)
