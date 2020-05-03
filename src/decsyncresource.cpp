@@ -42,7 +42,7 @@ DecSyncResource::DecSyncResource(const QString &id)
     setNeedsNetwork(false);
 
     const int versionStatus = decsync_check_decsync_info(
-        qUtf8Printable(Settings::self()->decSyncDirectory()));
+        Settings::self()->decSyncDirectory().toUtf8().constData());
     setOnline(!versionStatus);
     if (versionStatus) {
         const char* errorMessage =
@@ -58,7 +58,48 @@ DecSyncResource::DecSyncResource(const QString &id)
     qCDebug(log_decsyncresource, "resource started with app ID %s", this->appId);
 }
 
+/**
+ * This method is usually called when a new resource is being added to the
+ * Akonadi setup. You can do any kind of user interaction here, e.g. showing
+ * dialogs.
+ *
+ * The given window ID is usually useful to get the correct "on top of parent"
+ * behavior if the running window manager applies any kind of focus stealing
+ * prevention technique.
+ *
+ * If the configuration dialog has been accepted by the user by clicking Ok, the
+ * signal configurationDialogAccepted() has to be emitted, otherwise, if the
+ * user canceled the dialog, configurationDialogRejected() has to be emitted.
+*/
+void DecSyncResource::configure(WId windowId)
+{
+    Q_UNUSED(windowId);
+
+    const QString oldPath = Settings::self()->decSyncDirectory();
+    const QString newPath = QFileDialog::getExistingDirectory(
+        nullptr,
+        i18nc("@title:window", "Select DecSync folder"),
+        QUrl::fromLocalFile(oldPath.isEmpty() ? QDir::homePath() : oldPath).path());
+
+    if (newPath.isEmpty() || oldPath == newPath ||
+        decsync_check_decsync_info(qUtf8Printable(newPath)) != 0) {
+        configurationDialogRejected();
+        return;
+    }
+
+    Settings::self()->setDecSyncDirectory(newPath);
+    Settings::self()->save();
+    synchronize();
+    configurationDialogAccepted();
+}
+
 DecSyncResource::~DecSyncResource() {}
+
+void DecSyncResource::aboutToQuit()
+{
+    // Any cleanup you need to do while there is still an active event loop. The
+    // resource will terminate after this method returns.
+}
 
 void DecSyncResource::retrieveCollections()
 {
@@ -168,45 +209,6 @@ bool DecSyncResource::retrieveItems(const Akonadi::Item::List &items, const QSet
     Q_UNUSED(parts);
     itemsRetrieved(items);
     return true;
-}
-
-void DecSyncResource::aboutToQuit()
-{
-    // Any cleanup you need to do while there is still an active event loop. The
-    // resource will terminate after this method returns.
-}
-
-void DecSyncResource::configure(WId windowId)
-{
-    // This method is usually called when a new resource is being added to the
-    // Akonadi setup. You can do any kind of user interaction here, e.g. showing
-    // dialogs.
-    //
-    // The given window ID is usually useful to get the correct "on top of
-    // parent" behavior if the running window manager applies any kind of focus
-    // stealing prevention technique.
-    //
-    // If the configuration dialog has been accepted by the user by clicking Ok,
-    // the signal configurationDialogAccepted() has to be emitted, otherwise, if
-    // the user canceled the dialog, configurationDialogRejected() has to be emitted.
-    Q_UNUSED(windowId);
-
-    const QString oldPath = Settings::self()->decSyncDirectory();
-    const QString newPath = QFileDialog::getExistingDirectory(
-        nullptr,
-        i18nc("@title:window", "Select DecSync folder"),
-        QUrl::fromLocalFile(oldPath.isEmpty() ? QDir::homePath() : oldPath).path());
-
-    if (newPath.isEmpty() || oldPath == newPath ||
-        decsync_check_decsync_info(qUtf8Printable(newPath)) != 0) {
-        configurationDialogRejected();
-        return;
-    }
-
-    Settings::self()->setDecSyncDirectory(newPath);
-    Settings::self()->save();
-    synchronize();
-    configurationDialogAccepted();
 }
 
 /*
