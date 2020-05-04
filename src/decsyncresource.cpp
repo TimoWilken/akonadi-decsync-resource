@@ -108,7 +108,7 @@ const QStringList appropriateMimetype(const char* collectionType)
         return { QStringLiteral("text/calendar") };
     } else if (0 == strcmp("contacts", collectionType)) {
         return { QStringLiteral("text/directory") };
-    } else if (0 == strcmp("feeds", collectionType)) {
+    } else if (0 == strcmp("rss", collectionType)) {
         return { QStringLiteral("text/rss+xml") };
     } else {
         return {};
@@ -132,7 +132,7 @@ void DecSyncResource::retrieveCollections()
     for (QList<const char*>::const_iterator type = COLLECTION_TYPES.constBegin();
          type != COLLECTION_TYPES.constEnd(); ++type) {
         // Feeds don't have collections; handle them specially.
-        if (0 == strcmp("feeds", *type)) {
+        if (0 == strcmp("rss", *type)) {
             continue;
         }
 
@@ -201,17 +201,17 @@ void DecSyncResource::retrieveCollections()
     }
 
     // Feeds don't have subcollections, so use "" as the collection name.
-    qCDebug(log_decsyncresource, "initialize feeds collection");
+    qCDebug(log_decsyncresource, "initialize rss collection");
     Decsync sync;
     if (int error = decsync_new(
             &sync, qUtf8Printable(Settings::self()->decSyncDirectory()),
-            "feeds", "", this->appId)) {
-        qCWarning(log_decsyncresource, "failed to initialize DecSync feeds collection: error %d", error);
+            "rss", "", this->appId)) {
+        qCWarning(log_decsyncresource, "failed to initialize DecSync rss collection: error %d", error);
     } else {
         Akonadi::Collection coll;
         coll.setParentCollection(Akonadi::Collection::root());
-        coll.setRemoteId(QStringLiteral("feeds") + QChar::fromLatin1(PATHSEP));
-        coll.setContentMimeTypes(appropriateMimetype("feeds"));
+        coll.setRemoteId(QStringLiteral("rss") + QChar::fromLatin1(PATHSEP));
+        coll.setContentMimeTypes(appropriateMimetype("rss"));
         coll.setRights(Akonadi::Collection::Right::ReadOnly);
         coll.setName(QStringLiteral("DecSync RSS feeds"));
         collections << coll;

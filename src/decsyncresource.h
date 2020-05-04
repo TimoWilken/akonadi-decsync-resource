@@ -25,7 +25,7 @@
 #define APPID_LENGTH         256
 #define PATHSEP              '/'
 
-const QList<const char*> COLLECTION_TYPES { "calendars", "contacts", "feeds" };
+const QList<const char*> COLLECTION_TYPES { "calendars", "contacts", "rss" };
 
 /**
  * An instance of this struct is passed to the function called by libdecsync
