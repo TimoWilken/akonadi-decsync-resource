@@ -42,7 +42,7 @@ DecSyncResource::DecSyncResource(const QString &id)
     setNeedsNetwork(false);
 
     const int versionStatus = decsync_check_decsync_info(
-        Settings::self()->decSyncDirectory().toUtf8().constData());
+        qUtf8Printable(Settings::self()->decSyncDirectory()));
     setOnline(!versionStatus);
     if (versionStatus) {
         const char* errorMessage =
@@ -70,7 +70,7 @@ DecSyncResource::DecSyncResource(const QString &id)
  * If the configuration dialog has been accepted by the user by clicking Ok, the
  * signal configurationDialogAccepted() has to be emitted, otherwise, if the
  * user canceled the dialog, configurationDialogRejected() has to be emitted.
-*/
+ */
 void DecSyncResource::configure(WId windowId)
 {
     Q_UNUSED(windowId);
@@ -101,45 +101,93 @@ void DecSyncResource::aboutToQuit()
     // resource will terminate after this method returns.
 }
 
+const QStringList appropriateMimetype(const char* collectionType)
+{
+    if (0 == strcmp("calendars", collectionType)) {
+        // TODO: use Akonadi-defined calendar subtypes?
+        return { QStringLiteral("text/calendar") };
+    } else if (0 == strcmp("contacts", collectionType)) {
+        return { QStringLiteral("text/directory") };
+    } else if (0 == strcmp("feeds", collectionType)) {
+        return { QStringLiteral("text/rss+xml") };
+    } else {
+        return {};
+    }
+}
+
+const QStringList appropriateMimetype(const QString collectionType)
+{
+    return appropriateMimetype(qUtf8Printable(collectionType));
+}
+
+QString jsonDecodeString(const char* json)
+{
+    // json contains a JSON-encoded string, not the actual value!
+    // Wrap it in [ ] so QJsonDocument can decode it.
+    QByteArray array = QByteArray(json).prepend('[').append(']');
+    return QJsonDocument::fromJson(array).array().first().toString();
+}
+
 void DecSyncResource::retrieveCollections()
 {
     Akonadi::Collection::List collections;
 
-    for (QMap<const char*, QStringList>::const_iterator type =
-             COLLECTION_TYPES_AND_MIMETYPES.constBegin();
-         type != COLLECTION_TYPES_AND_MIMETYPES.constEnd(); ++type) {
-#define MAX_COLLECTIONS 256
-        char names[MAX_COLLECTIONS][256];
+    if (Settings::self()->decSyncDirectory().isEmpty()) {
+        collectionsRetrieved(collections);
+        return;
+    }
+
+    for (QList<const char*>::const_iterator type = COLLECTION_TYPES.constBegin();
+         type != COLLECTION_TYPES.constEnd(); ++type) {
+        // Feeds don't have collections; handle them specially.
+        if (0 == strcmp("feeds", *type)) {
+            continue;
+        }
+
+        QByteArray backingStore[MAX_COLLECTIONS];
+        const char* names[MAX_COLLECTIONS];
+        // Allocate and fill the new array with zeros so
+        // decsync_list_decsync_collections can overwrite it.
+        for (int i = 0; i < MAX_COLLECTIONS; ++i) {
+            // decsync_list_decsync_collections needs each element to be 256
+            // chars long.
+            backingStore[i] = QByteArray(256, 'x');
+            // Do this in two steps so the QByteArray is copied, so we get
+            // different pointers to data for each one.
+            backingStore[i].fill('\0');
+            names[i] = backingStore[i].constData();
+        }
+
         int collectionsFound = decsync_list_decsync_collections(
             qUtf8Printable(Settings::self()->decSyncDirectory()),
-            type.key(), (const char**)names, MAX_COLLECTIONS);
-#undef MAX_COLLECTIONS
+            *type, names, MAX_COLLECTIONS);
+        qCDebug(log_decsyncresource, "found %d/%d collections for %s",
+                collectionsFound, MAX_COLLECTIONS, *type);
 
         for (int i = 0; i < collectionsFound; ++i) {
+            qCDebug(log_decsyncresource, "initialize %s collection %s", *type, names[i]);
             Decsync sync;
             if (int error = decsync_new(
                     &sync, qUtf8Printable(Settings::self()->decSyncDirectory()),
-                    type.key(), names[i], this->appId)) {
+                    *type, names[i], this->appId)) {
                 qCWarning(log_decsyncresource,
                           "failed to initialize DecSync %s collection %s: error %d",
-                          type.key(), names[i], error);
+                          *type, names[i], error);
                 continue;
             }
 
             Akonadi::Collection coll;
             coll.setParentCollection(Akonadi::Collection::root());
-            coll.setRemoteId(QString::fromUtf8(type.key()) + PATHSEP + QString::fromUtf8(names[i]));
-            coll.setContentMimeTypes(type.value());
+            coll.setRemoteId(QString::fromUtf8(*type) + QChar::fromLatin1(PATHSEP) +
+                             QString::fromUtf8(names[i]));
+            coll.setContentMimeTypes(appropriateMimetype(*type));
             coll.setRights(Akonadi::Collection::Right::ReadOnly);
 
-#define FRIENDLY_NAME_LENGTH 256
             char friendlyName[FRIENDLY_NAME_LENGTH];
             decsync_get_static_info(
                 qUtf8Printable(Settings::self()->decSyncDirectory()),
-                type.key(), names[i], "\"name\"", friendlyName, FRIENDLY_NAME_LENGTH);
-#undef FRIENDLY_NAME_LENGTH
-
-            coll.setName(QString::fromUtf8(friendlyName));
+                *type, names[i], "\"name\"", friendlyName, FRIENDLY_NAME_LENGTH);
+            coll.setName(jsonDecodeString(friendlyName));
 
             collections << coll;
 
@@ -147,27 +195,45 @@ void DecSyncResource::retrieveCollections()
         }
     }
 
+    // Feeds don't have subcollections
+    qCDebug(log_decsyncresource, "initialize feeds collection");
+    Decsync sync;
+    if (int error = decsync_new(
+            &sync, qUtf8Printable(Settings::self()->decSyncDirectory()),
+            "feeds", "", this->appId)) {
+        qCWarning(log_decsyncresource, "failed to initialize DecSync feeds collection: error %d", error);
+    } else {
+        Akonadi::Collection coll;
+        coll.setParentCollection(Akonadi::Collection::root());
+        coll.setRemoteId(QStringLiteral("feeds") + QChar::fromLatin1(PATHSEP));
+        coll.setContentMimeTypes(appropriateMimetype("feeds"));
+        coll.setRights(Akonadi::Collection::Right::ReadOnly);
+        coll.setName(QStringLiteral("DecSync RSS Feeds"));
+        collections << coll;
+    }
+    decsync_free(sync);
+
     collectionsRetrieved(collections);
 }
 
 void onEntryUpdate(const char** path, const int len, const char* datetime,
                    const char* key, const char* value, void* extra)
 {
-    qCDebug(log_decsyncresource,
-            "got update notification, extra=%p path[0/%d]=%s datetime=%s key=%s value=%s",
-            extra, len, len ? path[0] : "<empty>", datetime, key, value);
-
     QStringList pathComponents;
     for (int i = 0; i < len; ++i) {
         pathComponents << QString::fromUtf8(path[i]);
     }
+    QString remoteId = pathComponents.join(QChar::fromLatin1(PATHSEP));
 
-    ItemListAndMime info = *static_cast<ItemListAndMime*>(extra);
+    qCDebug(log_decsyncresource, "got update notification: path=%s datetime=%s key=%s",
+            qUtf8Printable(remoteId), datetime, key);
+
+    ItemListAndMime* info = static_cast<ItemListAndMime*>(extra);
     Akonadi::Item item;
-    item.setRemoteId(pathComponents.join(PATHSEP));
-    item.setMimeType(info.mime);
-    item.setPayloadFromData(value);
-    info.items << item;
+    item.setRemoteId(remoteId);
+    item.setMimeType(info->mime);
+    item.setPayloadFromData(jsonDecodeString(value).toUtf8());
+    info->items << item;
 }
 
 void DecSyncResource::retrieveItems(const Akonadi::Collection &collection)
@@ -175,9 +241,12 @@ void DecSyncResource::retrieveItems(const Akonadi::Collection &collection)
     // This method is called when Akonadi wants to know about all the items in
     // the given collection. You can but don't have to provide all the data for
     // each item, remote ID and MIME type are enough at this stage.
+    qCDebug(log_decsyncresource, "retrieveItems");
 
-    const char* collType = collection.remoteId().section(PATHSEP, 0, 0).toUtf8().constData();
-    const char* collName = collection.remoteId().section(PATHSEP, 1, 1).toUtf8().constData();
+    const QList<QByteArray> components = collection.remoteId().toUtf8().split(PATHSEP);
+    const char* collType = components[0].constData();
+    const char* collName = components[1].constData();
+    qCDebug(log_decsyncresource, "getting items for %s/%s", collType, collName);
 
     Decsync sync;
     if (int error = decsync_new(
@@ -191,24 +260,17 @@ void DecSyncResource::retrieveItems(const Akonadi::Collection &collection)
         return;
     }
 
-    decsync_add_listener(sync, {}, 0, onEntryUpdate);
+    // TODO: this works for contacts and calendars, but feeds need special handling!
+    const char* path[] = { "resources" };
+    decsync_add_listener(sync, path, 0, onEntryUpdate);
     decsync_init_stored_entries(sync);
 
     Akonadi::Item::List items;
-    ItemListAndMime info(items, COLLECTION_TYPES_AND_MIMETYPES[collType][0]);
-    decsync_execute_all_stored_entries_for_path_prefix(sync, {}, 0, (void*)&info);
+    ItemListAndMime info(items, appropriateMimetype(collType).first());
+    decsync_execute_all_stored_entries_for_path_prefix(sync, path, 0, &info);
 
     decsync_free(sync);
     itemsRetrieved(items);
-}
-
-bool DecSyncResource::retrieveItems(const Akonadi::Item::List &items, const QSet<QByteArray> &parts)
-{
-    // TODO: Does this work?
-    // retrieveItems(const Collection&) should have populated all Items already!
-    Q_UNUSED(parts);
-    itemsRetrieved(items);
-    return true;
 }
 
 /*

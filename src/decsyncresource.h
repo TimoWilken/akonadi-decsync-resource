@@ -20,15 +20,12 @@
 
 #include <ResourceBase>
 
-#define APPID_LENGTH  256
-#define PATHSEP       QStringLiteral("/")
+#define MAX_COLLECTIONS      256
+#define FRIENDLY_NAME_LENGTH 256
+#define APPID_LENGTH         256
+#define PATHSEP              '/'
 
-// TODO: use Akonadi-defined calendar subtypes?
-const QMap<const char*, QStringList> COLLECTION_TYPES_AND_MIMETYPES({
-        {"calendars", {QStringLiteral("text/calendar")}},
-        {"contacts", {QStringLiteral("text/directory")}},
-        {"feeds", {QStringLiteral("text/rss+xml")}},
-    });
+const QList<const char*> COLLECTION_TYPES { "calendars", "contacts", "feeds" };
 
 /**
  * An instance of this struct is passed to the function called by libdecsync
@@ -36,9 +33,9 @@ const QMap<const char*, QStringList> COLLECTION_TYPES_AND_MIMETYPES({
  * Akonadi::Item::List and with the correct MIME type.
  */
 struct ItemListAndMime {
-    Akonadi::Item::List items;
+    Akonadi::Item::List &items;
     const QString mime;
-    ItemListAndMime(Akonadi::Item::List list, const QString mimetype)
+    ItemListAndMime(Akonadi::Item::List &list, const QString mimetype)
         : items{list}, mime{mimetype} {}
 };
 
@@ -54,13 +51,15 @@ public:
 public Q_SLOTS:
     void configure(WId windowId) override;
 
+protected:
+
 protected Q_SLOTS:
     void retrieveCollections() override;
     void retrieveItems(const Akonadi::Collection &collection) override;
-    bool retrieveItems(const Akonadi::Item::List &items,
-                       const QSet<QByteArray> &parts) override;
 
 protected:
+    using Akonadi::ResourceBase::retrieveItems;
+
     void aboutToQuit() override;
 
     void itemAdded(const Akonadi::Item &item,
