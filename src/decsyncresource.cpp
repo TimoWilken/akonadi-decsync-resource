@@ -159,7 +159,8 @@ void DecSyncResource::retrieveCollections()
         Akonadi::Collection parentColl;
         parentColl.setParentCollection(Akonadi::Collection::root());
         parentColl.setRemoteId(QString::fromUtf8(*type) + QChar::fromLatin1(PATHSEP));
-        parentColl.setContentMimeTypes(appropriateMimetype(*type));
+        // Allow subcollections only.
+        parentColl.setContentMimeTypes({ QStringLiteral("inode/directory") });
         parentColl.setRights(Akonadi::Collection::Right::CanCreateCollection);
         parentColl.setName(QStringLiteral("DecSync ") + QString::fromUtf8(*type));
         collections << parentColl;
