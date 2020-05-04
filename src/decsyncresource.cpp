@@ -120,14 +120,6 @@ const QStringList appropriateMimetype(const QString collectionType)
     return appropriateMimetype(qUtf8Printable(collectionType));
 }
 
-QString jsonDecodeString(const char* json)
-{
-    // json contains a JSON-encoded string, not the actual value!
-    // Wrap it in [ ] so QJsonDocument can decode it.
-    QByteArray array = QByteArray(json).prepend('[').append(']');
-    return QJsonDocument::fromJson(array).array().first().toString();
-}
-
 void DecSyncResource::retrieveCollections()
 {
     Akonadi::Collection::List collections;
@@ -187,7 +179,11 @@ void DecSyncResource::retrieveCollections()
             decsync_get_static_info(
                 qUtf8Printable(Settings::self()->decSyncDirectory()),
                 *type, names[i], "\"name\"", friendlyName, FRIENDLY_NAME_LENGTH);
-            coll.setName(jsonDecodeString(friendlyName));
+
+            // json contains a JSON-encoded string, not the actual value!
+            // Wrap it in [ ] so QJsonDocument can decode it.
+            QByteArray array = QByteArray(friendlyName).prepend('[').append(']');
+            coll.setName(QJsonDocument::fromJson(array).array().first().toString());
 
             collections << coll;
 
@@ -219,6 +215,13 @@ void DecSyncResource::retrieveCollections()
 void onEntryUpdate(const char** path, const int len, const char* datetime,
                    const char* key, const char* value, void* extra)
 {
+    QByteArray arrayified = QByteArray(value).prepend('[').append(']');
+    QJsonValue payload = QJsonDocument::fromJson(arrayified).array().first();
+    if (payload.isNull()) {
+        // This item is deleted. Do nothing.
+        return;
+    }
+
     QStringList pathComponents;
     for (int i = 0; i < len; ++i) {
         pathComponents << QString::fromUtf8(path[i]);
@@ -232,7 +235,7 @@ void onEntryUpdate(const char** path, const int len, const char* datetime,
     Akonadi::Item item;
     item.setRemoteId(remoteId);
     item.setMimeType(info->mime);
-    item.setPayloadFromData(jsonDecodeString(value).toUtf8());
+    item.setPayloadFromData(payload.toString().toUtf8());
     info->items << item;
 }
 
@@ -261,13 +264,15 @@ void DecSyncResource::retrieveItems(const Akonadi::Collection &collection)
     }
 
     // TODO: this works for contacts and calendars, but feeds need special handling!
-    const char* path[] = { "resources" };
-    decsync_add_listener(sync, path, 0, onEntryUpdate);
+#define PATH_LENGTH 1
+    const char* path[PATH_LENGTH] { "resources" };
+    decsync_add_listener(sync, path, PATH_LENGTH, onEntryUpdate);
     decsync_init_stored_entries(sync);
 
     Akonadi::Item::List items;
     ItemListAndMime info(items, appropriateMimetype(collType).first());
-    decsync_execute_all_stored_entries_for_path_prefix(sync, path, 0, &info);
+    decsync_execute_all_stored_entries_for_path_prefix(sync, path, PATH_LENGTH, &info);
+#undef PATH_LENGTH
 
     decsync_free(sync);
     itemsRetrieved(items);
@@ -300,6 +305,8 @@ void DecSyncResource::itemChanged(const Akonadi::Item &item, const QSet<QByteArr
 void DecSyncResource::itemRemoved(const Akonadi::Item &item)
 {
     Q_UNUSED(item);
+
+    // To delete a contact or calendar event, set its DecSync value to JSON null.
 }
 
 void DecSyncResource::collectionAdded(const Akonadi::Collection &collection,
