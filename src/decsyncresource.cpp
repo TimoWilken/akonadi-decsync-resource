@@ -156,6 +156,14 @@ void DecSyncResource::retrieveCollections()
         qCDebug(log_decsyncresource, "found %d/%d collections for %s",
                 collectionsFound, MAX_COLLECTIONS, *type);
 
+        Akonadi::Collection parentColl;
+        parentColl.setParentCollection(Akonadi::Collection::root());
+        parentColl.setRemoteId(QString::fromUtf8(*type) + QChar::fromLatin1(PATHSEP));
+        parentColl.setContentMimeTypes(appropriateMimetype(*type));
+        parentColl.setRights(Akonadi::Collection::Right::CanCreateCollection);
+        parentColl.setName(QStringLiteral("DecSync ") + QString::fromUtf8(*type));
+        collections << parentColl;
+
         for (int i = 0; i < collectionsFound; ++i) {
             qCDebug(log_decsyncresource, "initialize %s collection %s", *type, names[i]);
             Decsync sync;
@@ -168,8 +176,9 @@ void DecSyncResource::retrieveCollections()
                 continue;
             }
 
+            // TODO: Read calendar colour from static info.
             Akonadi::Collection coll;
-            coll.setParentCollection(Akonadi::Collection::root());
+            coll.setParentCollection(parentColl);
             coll.setRemoteId(QString::fromUtf8(*type) + QChar::fromLatin1(PATHSEP) +
                              QString::fromUtf8(names[i]));
             coll.setContentMimeTypes(appropriateMimetype(*type));
@@ -191,7 +200,7 @@ void DecSyncResource::retrieveCollections()
         }
     }
 
-    // Feeds don't have subcollections
+    // Feeds don't have subcollections, so use "" as the collection name.
     qCDebug(log_decsyncresource, "initialize feeds collection");
     Decsync sync;
     if (int error = decsync_new(
@@ -204,7 +213,7 @@ void DecSyncResource::retrieveCollections()
         coll.setRemoteId(QStringLiteral("feeds") + QChar::fromLatin1(PATHSEP));
         coll.setContentMimeTypes(appropriateMimetype("feeds"));
         coll.setRights(Akonadi::Collection::Right::ReadOnly);
-        coll.setName(QStringLiteral("DecSync RSS Feeds"));
+        coll.setName(QStringLiteral("DecSync RSS feeds"));
         collections << coll;
     }
     decsync_free(sync);
