@@ -24,6 +24,7 @@
 #define FRIENDLY_NAME_LENGTH 256
 #define APPID_LENGTH         256
 #define PATHSEP              '/'
+#define QPATHSEP             QChar::fromLatin1(PATHSEP)
 
 const QList<const char*> COLLECTION_TYPES { "calendars", "contacts", "rss" };
 

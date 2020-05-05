@@ -144,7 +144,7 @@ void DecSyncResource::retrieveCollections()
             } else {
                 Akonadi::Collection coll;
                 coll.setParentCollection(Akonadi::Collection::root());
-                coll.setRemoteId(qTypeName + QChar::fromLatin1(PATHSEP));
+                coll.setRemoteId(qTypeName + QPATHSEP);
                 coll.setContentMimeTypes(appropriateMimetypes(*type));
                 coll.setRights(Akonadi::Collection::Right::ReadOnly);
                 coll.setName(QStringLiteral("DecSync RSS feeds"));
@@ -153,7 +153,7 @@ void DecSyncResource::retrieveCollections()
         } else {
             Akonadi::Collection parentColl;
             parentColl.setParentCollection(Akonadi::Collection::root());
-            parentColl.setRemoteId(qTypeName + QChar::fromLatin1(PATHSEP));
+            parentColl.setRemoteId(qTypeName + QPATHSEP);
             // Allow subcollections only.
             parentColl.setContentMimeTypes({ QStringLiteral("inode/directory") });
             parentColl.setRights(Akonadi::Collection::Right::CanCreateCollection);
@@ -195,7 +195,7 @@ void DecSyncResource::retrieveCollections()
                 // TODO: Read calendar colour from static info.
                 Akonadi::Collection coll;
                 coll.setParentCollection(parentColl);
-                coll.setRemoteId(qTypeName + QChar::fromLatin1(PATHSEP) + QString::fromUtf8(names[i]));
+                coll.setRemoteId(qTypeName + QPATHSEP + QString::fromUtf8(names[i]));
                 coll.setContentMimeTypes(appropriateMimetypes(*type));
                 coll.setRights(Akonadi::Collection::Right::ReadOnly);
 
@@ -234,7 +234,7 @@ void onEntryUpdate(const char** path, const int len, const char* datetime,
     for (int i = 0; i < len; ++i) {
         pathComponents << QString::fromUtf8(path[i]);
     }
-    QString remoteId = pathComponents.join(QChar::fromLatin1(PATHSEP));
+    QString remoteId = pathComponents.join(QPATHSEP);
 
     qCDebug(log_decsyncresource, "got update notification: path=%s datetime=%s key=%s",
             qUtf8Printable(remoteId), datetime, key);
