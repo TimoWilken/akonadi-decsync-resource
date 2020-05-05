@@ -9,16 +9,17 @@ This will be an Akonadi resource that lets [[https://kde.org/applications/office
 * What works and what doesn't
 
 | Feature            | Reading | Writing |
+|                    |   <c>   |   <c>   |
 |--------------------+---------+---------|
-| Calendar names     | OK      | ---     |
-| Calendar colours   | ---     | ---     |
-| Calendar events    | OK      | ---     |
+| Calendar names     |   OK    |   ---   |
+| Calendar colours   |   ---   |   ---   |
+| Calendar events    |   OK    |   ---   |
 |--------------------+---------+---------|
-| Address book names | OK      | ---     |
-| Contacts           | OK      | ---     |
+| Address book names |   OK    |   ---   |
+| Contacts           |   OK    |   ---   |
 |--------------------+---------+---------|
-| RSS subscriptions  | ---     | ---     |
-| Read RSS articles  | ---     | ---     |
+| RSS subscriptions  |   ---   |   ---   |
+| Read RSS articles  |   ---   |   ---   |
 
 * How to build this project
 
@@ -48,11 +49,12 @@ MIME types this project deals with are:
 - ~text/rss+xml~: for RSS feeds
 - ~text/directory~: for contact data
 - ~text/calendar~: for calendar data
-  - [[https://github.com/KDE/akonadi/blob/master/akonadi-mime.xml][Akonadi-defined subtypes]]:
-    - ~application/x-vnd.akonadi.calendar.event~
-    - ~application/x-vnd.akonadi.calendar.todo~ (unsupported)
-    - ~application/x-vnd.akonadi.calendar.journal~ (unsupported)
-    - ~application/x-vnd.akonadi.calendar.freebusy~ (unsupported)
+
+  There are [[https://github.com/KDE/akonadi/blob/master/akonadi-mime.xml][Akonadi-defined subtypes]]:
+  - ~application/x-vnd.akonadi.calendar.event~
+  - ~application/x-vnd.akonadi.calendar.todo~ (unsupported)
+  - ~application/x-vnd.akonadi.calendar.journal~ (unsupported)
+  - ~application/x-vnd.akonadi.calendar.freebusy~ (unsupported)
 
 At the moment, this resource only supports event calendars, i.e. ~application/x-vnd.akonadi.calendar.event~. As [[https://github.com/39aldo39/DecSyncCC][DecSyncCC]] on Android assumes all calendars are event calendars and calendar apps show them as such, supporting the other types using DecSync would require more work. For instance, a new collection type could be made for those so to-dos or journal entries can be synced with the appropriate mobile apps.
 
