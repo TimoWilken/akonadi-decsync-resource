@@ -2,89 +2,73 @@
 #+AUTHOR: Timo Wilken
 #+DATE: May 2020
 
-*WARNING: This library is a work in progress, and is not expected to work at all yet.* If you're interested, feel free to hack on this repo; issue reports and pull requests are welcome!
+*WARNING: This resource is a work in progress. Lots of things don't work yet.* If you're interested, feel free to hack on this repo; issue reports and pull requests are welcome!
 
-This will be an Akonadi resource that lets [[https://kde.org/applications/office/org.kde.kontact][Kontact]], [[https://kde.org/applications/internet/org.kde.akregator][Akregator]] et al read and write contacts, calendar events and RSS feeds from and to a [[https://github.com/39aldo39/DecSync][DecSync]] directory.
+This will be an Akonadi resource that lets [[https://kde.org/applications/office/org.kde.kontact][Kontact]], [[https://kde.org/applications/internet/org.kde.akregator][Akregator]] et al read and write contacts, calendar events and RSS feeds from and to a [[https://github.com/39aldo39/DecSync][DecSync]] directory so they can be synchronised with other devices.
 
-* DecSync documentation
+* What works and what doesn't
 
-- [[https://github.com/39aldo39/DecSync/blob/master/internal.md][Directory format]]
-- [[https://github.com/39aldo39/DecSync/blob/master/contacts-calendars.md][Contact and calendar storage]]
-- [[https://github.com/39aldo39/DecSync/blob/master/rss.md][RSS storage]]
+Ticked items are usable, unticked ones aren't.
 
-* Template documentation
+- [X] reading calendar names from DecSync
+- [ ] reading calendar colours from DecSync
+- [X] reading calendar events from DecSync
+- [ ] writing calendar names
+- [ ] writing calendar colours
+- [ ] writing calendar events
+- [X] reading contact collections from DecSync
+- [X] reading contact collection names from DecSync
+- [X] reading contact entries from DecSync
+- [ ] writing contact collections
+- [ ] writing contact collection names
+- [ ] writing contact entries
+- [ ] reading subscribed RSS feeds from DecSync
+- [ ] reading read and unread articles from DecSync
+- [ ] writing subscribed RSS feeds
+- [ ] writing articles' read/unread state
 
-This project started from a generated template; this is the documentation that came with it.
+* How to build this project
 
-** How to build this project
-*** On Linux & similar:
+This resource uses the C bindings to [[https://github.com/39aldo39/libdecsync][libdecsync]], so you'll need to install the library and its headers. Qt \ge5.11.0, KDE Frameworks \ge5.38.0 and Akonadi \ge5.2 are needed, too.
 
 #+BEGIN_SRC sh
-  cd <project_name_path>
-  mkdir build
+  cd path/to/project/repository
+  cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$MY_PREFIX -DCMAKE_BUILD_TYPE=Debug
   cd build
-  cmake .. -DCMAKE_INSTALL_PREFIX=$MY_PREFIX -DCMAKE_BUILD_TYPE=Debug
   make
-  make install  # or su -c 'make install'
+
+  # to install to $MY_PREFIX:
+  make install  # or sudo make install
+
+  # to uninstall:
+  make uninstall  # or sudo make uninstall
 #+END_SRC
 
-(~MY_PREFIX~ is where you install your Akonadi setup, replace it accordingly.)
+~MY_PREFIX~ is where you install your Akonadi setup, replace it accordingly.
 
-To uninstall the project: ~make uninstall~ or ~su -c 'make uninstall'~
+Note: on Windows, use ~nmake~ if you're building with the Visual Studio compiler, or ~make~ if you're using the minGW compiler.
 
-Note: you can use another build path. Then ~cd~ into your build dir and:
-#+BEGIN_SRC sh
-  export MY_SRC=path_to_your_src
-  cmake $MY_SRC -DCMAKE_INSTALL_PREFIX=$MY_PREFIX -DCMAKE_BUILD_TYPE=Debug
-#+END_SRC
+* MIME types
 
-*** On Windows:
+MIME types this project deals with are:
 
-#+BEGIN_SRC dos
-  cd <project_name_path>
-  mkdir build
-  cd build
-  cmake .. -DCMAKE_INSTALL_PREFIX=%MY_PREFIX% -DCMAKE_BUILD_TYPE=Debug
-  [n]make
-  [n]make install
-#+END_SRC
+- ~text/rss+xml~: for RSS feeds
+- ~text/directory~: for contact data
+- ~text/calendar~: for calendar data
+  - [[https://github.com/KDE/akonadi/blob/master/akonadi-mime.xml][Akonadi-defined subtypes]]:
+    - ~application/x-vnd.akonadi.calendar.event~
+    - ~application/x-vnd.akonadi.calendar.todo~ (unsupported)
+    - ~application/x-vnd.akonadi.calendar.journal~ (unsupported)
+    - ~application/x-vnd.akonadi.calendar.freebusy~ (unsupported)
 
-(~MY_PREFIX~ is where you install your Akonadi setup, replace it accordingly.)
+At the moment, this resource only supports event calendars, i.e. ~application/x-vnd.akonadi.calendar.event~. As [[https://github.com/39aldo39/DecSyncCC][DecSyncCC]] on Android assumes all calendars are event calendars and calendar apps show them as such, supporting the other types using DecSync would require more work. For instance, a new collection type could be made for those so to-dos or journal entries can be synced with the appropriate mobile apps.
 
-To uninstall the project: ~[n]make uninstall~
+* Documentation for things this resource uses
 
-Note: use ~nmake~ if you're building with the Visual Studio compiler, or ~make~ if you're using the minGW compiler.
-
-** Implementation hints
-
-The code generated by the template can be compiled without any further changes, so you can start with your own code right away.
-
-However, there are a couple of things you will need to change outside the resource's code, i.e. in the resource's ~.desktop~ file:
-
-- ~Name~ field: the name of the resource with which it will be displayed in system settings and applications which can add resources on their own. E.g. MyBackend Resource
-
-- ~Comment~ field: short description of the resource, also used to be displayed, e.g. For calendars and contacts stored in MyBackend
-
-- ~Icon~ field: if you are not writing a contact (addressbook) resource, you have to change this to either an icon for the respective MIME type you are going to provide or use a resource specific icon which you provide yourself
-
-- ~X-Akonadi-MimeTypes~ field: if you are not writing a contact (addressbook) resource, you have to change this to either a known MIME type or one you install together with the resource. If your resource can provide data of more than one MIME type, you can specific all possible ones as a comma separate list.
-
-  Common MIME types are:
-  - ~text/directory~: for contact data
-  - ~text/calendar~: for calendar data
-    - [[https://github.com/KDE/akonadi/blob/master/akonadi-mime.xml][Akonadi-defined subtypes]]:
-      - ~application/x-vnd.akonadi.calendar.event~
-      - ~application/x-vnd.akonadi.calendar.todo~
-      - ~application/x-vnd.akonadi.calendar.journal~
-      - ~application/x-vnd.akonadi.calendar.freebusy~
-  - ~message/rfc822~: for e-mails and usenet news
-
-The template comes with an input file for KDE's KConfigXT framework for improved configuration file handling. The generated class is called "Settings", so access to its data is provided through its singleton instance method ~Settings::self()~. See [[https://techbase.kde.org/Development/Tutorials/Using_KConfig_XT]].
-
-** Documentation
-
-The Akonadi-KDE API documentation can be found here: [[https://api.kde.org/kdepim/akonadi/html/index.html]]
-
-General developer information, e.g. tutorials can be found here: [[https://techbase.kde.org/KDE_PIM/Akonadi]]
-
-The contact site can be found here: [[https://community.kde.org/KDE_PIM/Contact]]
+- [[https://api.kde.org/kdepim/akonadi/html/index.html][Akonadi-KDE API documentation]]
+- [[https://techbase.kde.org/KDE_PIM/Akonadi][General KDEPIM developer information, e.g. tutorials]]
+- [[https://community.kde.org/KDE_PIM/Contact][KDEPIM contact]]
+- [[https://github.com/39aldo39/DecSync/blob/master/internal.md][DecSync directory format]]
+- [[https://github.com/39aldo39/DecSync/blob/master/contacts-calendars.md][DecSync contact and calendar storage]]
+- [[https://github.com/39aldo39/DecSync/blob/master/rss.md][DecSync RSS storage]]
+- The template comes with an input file for KDE's KConfigXT framework for improved configuration file handling. The generated class is called "Settings", so access to its data is provided through its singleton instance method ~Settings::self()~. [[https://techbase.kde.org/Development/Tutorials/Using_KConfig_XT][See also here.]]
