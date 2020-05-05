@@ -9,17 +9,16 @@ This will be an Akonadi resource that lets [[https://kde.org/applications/office
 * What works and what doesn't
 
 | Feature            | Reading | Writing |
-|                    |   <c>   |   <c>   |
 |--------------------+---------+---------|
-| Calendar names     |   OK    |   ---   |
-| Calendar colours   |   ---   |   ---   |
-| Calendar events    |   OK    |   ---   |
+| Calendar names     | OK      | ---     |
+| Calendar colours   | ---     | ---     |
+| Calendar events    | OK      | ---     |
 |--------------------+---------+---------|
-| Address book names |   OK    |   ---   |
-| Contacts           |   OK    |   ---   |
+| Address book names | OK      | ---     |
+| Contacts           | OK      | ---     |
 |--------------------+---------+---------|
-| RSS subscriptions  |   ---   |   ---   |
-| Read RSS articles  |   ---   |   ---   |
+| RSS subscriptions  | ---     | ---     |
+| Read RSS articles  | ---     | ---     |
 
 * How to build this project
 
