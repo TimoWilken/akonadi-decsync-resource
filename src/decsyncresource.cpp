@@ -101,11 +101,12 @@ void DecSyncResource::aboutToQuit()
     // resource will terminate after this method returns.
 }
 
-const QStringList appropriateMimetype(const char* collectionType)
+const QStringList appropriateMimetypes(const char* collectionType)
 {
     if (0 == strcmp("calendars", collectionType)) {
-        // TODO: use Akonadi-defined calendar subtypes?
-        return { QStringLiteral("text/calendar") };
+        // TODO: Support Akonadi-defined calendar subtypes journal, todo and freebusy?
+        return { QStringLiteral("application/x-vnd.akonadi.calendar.event"),
+                 QStringLiteral("text/calendar") };
     } else if (0 == strcmp("contacts", collectionType)) {
         return { QStringLiteral("text/directory") };
     } else if (0 == strcmp("rss", collectionType)) {
@@ -115,9 +116,9 @@ const QStringList appropriateMimetype(const char* collectionType)
     }
 }
 
-const QStringList appropriateMimetype(const QString collectionType)
+const QStringList appropriateMimetypes(const QString collectionType)
 {
-    return appropriateMimetype(qUtf8Printable(collectionType));
+    return appropriateMimetypes(qUtf8Printable(collectionType));
 }
 
 void DecSyncResource::retrieveCollections()
@@ -182,7 +183,7 @@ void DecSyncResource::retrieveCollections()
             coll.setParentCollection(parentColl);
             coll.setRemoteId(QString::fromUtf8(*type) + QChar::fromLatin1(PATHSEP) +
                              QString::fromUtf8(names[i]));
-            coll.setContentMimeTypes(appropriateMimetype(*type));
+            coll.setContentMimeTypes(appropriateMimetypes(*type));
             coll.setRights(Akonadi::Collection::Right::ReadOnly);
 
             char friendlyName[FRIENDLY_NAME_LENGTH];
@@ -212,7 +213,7 @@ void DecSyncResource::retrieveCollections()
         Akonadi::Collection coll;
         coll.setParentCollection(Akonadi::Collection::root());
         coll.setRemoteId(QStringLiteral("rss") + QChar::fromLatin1(PATHSEP));
-        coll.setContentMimeTypes(appropriateMimetype("rss"));
+        coll.setContentMimeTypes(appropriateMimetypes("rss"));
         coll.setRights(Akonadi::Collection::Right::ReadOnly);
         coll.setName(QStringLiteral("DecSync RSS feeds"));
         collections << coll;
@@ -280,7 +281,7 @@ void DecSyncResource::retrieveItems(const Akonadi::Collection &collection)
     decsync_init_stored_entries(sync);
 
     Akonadi::Item::List items;
-    ItemListAndMime info(items, appropriateMimetype(collType).first());
+    ItemListAndMime info(items, appropriateMimetypes(collType).first());
     decsync_execute_all_stored_entries_for_path_prefix(sync, path, PATH_LENGTH, &info);
 #undef PATH_LENGTH
 
