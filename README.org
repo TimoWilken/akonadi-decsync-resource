@@ -8,24 +8,17 @@ This will be an Akonadi resource that lets [[https://kde.org/applications/office
 
 * What works and what doesn't
 
-Ticked items are usable, unticked ones aren't.
-
-- [X] reading calendar names from DecSync
-- [ ] reading calendar colours from DecSync
-- [X] reading calendar events from DecSync
-- [ ] writing calendar names
-- [ ] writing calendar colours
-- [ ] writing calendar events
-- [X] reading contact collections from DecSync
-- [X] reading contact collection names from DecSync
-- [X] reading contact entries from DecSync
-- [ ] writing contact collections
-- [ ] writing contact collection names
-- [ ] writing contact entries
-- [ ] reading subscribed RSS feeds from DecSync
-- [ ] reading read and unread articles from DecSync
-- [ ] writing subscribed RSS feeds
-- [ ] writing articles' read/unread state
+| Feature            | Reading | Writing |
+|--------------------+---------+---------|
+| Calendar names     | OK      | ---     |
+| Calendar colours   | ---     | ---     |
+| Calendar events    | OK      | ---     |
+|--------------------+---------+---------|
+| Address book names | OK      | ---     |
+| Contacts           | OK      | ---     |
+|--------------------+---------+---------|
+| RSS subscriptions  | ---     | ---     |
+| Read RSS articles  | ---     | ---     |
 
 * How to build this project
 
