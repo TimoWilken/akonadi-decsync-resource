@@ -26,7 +26,7 @@
 #define PATHSEP              '/'
 #define QPATHSEP             QChar::fromLatin1(PATHSEP)
 
-const QList<const char*> COLLECTION_TYPES { "calendars", "contacts", "rss" };
+const QList<const char*> COLLECTION_TYPES { "calendars", "contacts" };
 
 /**
  * An instance of this struct is passed to the function called by libdecsync

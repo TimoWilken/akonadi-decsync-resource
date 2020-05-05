@@ -1,10 +1,11 @@
-#+TITLE: DecSyncResource README
+#+TITLE: DecSyncResource
+#+SUBTITLE: DecSync contact and calendar support for Akonadi
 #+AUTHOR: Timo Wilken
-#+DATE: May 2020
+#+DATE: <2020-05-05 Tue>
 
-*WARNING: This resource is a work in progress. Lots of things don't work yet.* If you're interested, feel free to hack on this repo; issue reports and pull requests are welcome!
+*WARNING: This resource is a work in progress. [[What works and what doesn't][Some things]] don't work yet.* If you're interested, feel free to hack on this repo; issue reports and pull requests are welcome!
 
-This will be an Akonadi resource that lets [[https://kde.org/applications/office/org.kde.kontact][Kontact]], [[https://kde.org/applications/internet/org.kde.akregator][Akregator]] et al read and write contacts, calendar events and RSS feeds from and to a [[https://github.com/39aldo39/DecSync][DecSync]] directory so they can be synchronised with other devices.
+This is an Akonadi resource that lets KDE PIM applications like [[https://kde.org/applications/office/org.kde.kontact][Kontact]] access contacts and calendar events stored in a [[https://github.com/39aldo39/DecSync][DecSync]] directory so they can be [[https://syncthing.net/][synchronised]] with other devices. Similar backends exist for [[https://github.com/39aldo39/Evolution-DecSync][Evolution]], [[https://github.com/39aldo39/Radicale-DecSync][Radicale]] and [[https://github.com/39aldo39/DecSyncCC][Android]], for example.
 
 * What works and what doesn't
 
@@ -13,21 +14,12 @@ This will be an Akonadi resource that lets [[https://kde.org/applications/office
 | Calendar names       | OK      | ---     |
 | Calendar colours     | ---     | ---     |
 | Calendar events      | OK      | ---     |
-|----------------------+---------+---------|
 | Address book names   | OK      | ---     |
 | Contacts             | OK      | ---     |
-|----------------------+---------+---------|
-| RSS subscriptions    | ---     | ---     |
-| RSS feed names       | ---     | ---     |
-| RSS feed categories  | ---     | ---     |
-| Category names       | ---     | ---     |
-| Category parents     | ---     | ---     |
-| Read RSS articles    | ---     | ---     |
-| Starred RSS articles | ---     | ---     |
 
 * How to build this project
 
-This resource uses the C bindings to [[https://github.com/39aldo39/libdecsync][libdecsync]], so you'll need to install the library and its headers. Qt \ge5.11.0, KDE Frameworks \ge5.38.0 and Akonadi \ge5.2 are needed, too.
+This resource uses the C bindings to [[https://github.com/39aldo39/libdecsync][libdecsync]], so you'll need to install the library and its headers. Qt \ge5.11.0, KDE Frameworks \ge5.38.0 and Akonadi \ge5.2 are required, too.
 
 #+BEGIN_SRC sh
   cd path/to/project/repository
@@ -44,13 +36,12 @@ This resource uses the C bindings to [[https://github.com/39aldo39/libdecsync][l
 
 ~MY_PREFIX~ is where you install your Akonadi setup, replace it accordingly.
 
-Note: on Windows, use ~nmake~ if you're building with the Visual Studio compiler, or ~make~ if you're using the minGW compiler.
+Note: on Windows, use ~nmake~ if you're building with the Visual Studio compiler, or ~make~ if you're using the minGW compiler. (This might be a moot point as I don't know whether libdecsync builds or works on Windows yet.)
 
 * MIME types
 
 MIME types this project deals with are:
 
-- ~text/rss+xml~: for RSS feeds
 - ~text/directory~: for contact data
 - ~text/calendar~: for calendar data
 
@@ -64,10 +55,12 @@ At the moment, this resource only supports event calendars, i.e. ~application/x-
 
 * Documentation for things this resource uses
 
+A lot of Akonadi-related KDE documentation still seems to use KDE4 APIs, not the new KF5 ones. [[https://api.kde.org][api.kde.org]] is helpful, as is reading the KF5 Akonadi header files.
+
 - [[https://api.kde.org/kdepim/akonadi/html/index.html][Akonadi-KDE API documentation]]
 - [[https://techbase.kde.org/KDE_PIM/Akonadi][General KDEPIM developer information, e.g. tutorials]]
 - [[https://community.kde.org/KDE_PIM/Contact][KDEPIM contact]]
 - [[https://github.com/39aldo39/DecSync/blob/master/internal.md][DecSync directory format]]
 - [[https://github.com/39aldo39/DecSync/blob/master/contacts-calendars.md][DecSync contact and calendar storage]]
-- [[https://github.com/39aldo39/DecSync/blob/master/rss.md][DecSync RSS storage]]
+- [[https://github.com/39aldo39/DecSync/blob/master/rss.md][DecSync RSS storage]] -- Akregator doesn't obviously support external feed synchronisation, so this resource doesn't handle RSS feeds. If I'm wrong about this, issues and pull requests are welcome!
 - The template comes with an input file for KDE's KConfigXT framework for improved configuration file handling. The generated class is called "Settings", so access to its data is provided through its singleton instance method ~Settings::self()~. [[https://techbase.kde.org/Development/Tutorials/Using_KConfig_XT][See also here.]]
