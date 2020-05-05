@@ -1,5 +1,4 @@
-#+TITLE: DecSyncResource
-#+SUBTITLE: DecSync contact and calendar support for Akonadi
+#+TITLE: DecSyncResource: DecSync support for Akonadi
 #+AUTHOR: Timo Wilken
 #+DATE: <2020-05-05 Tue>
 
