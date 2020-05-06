@@ -27,6 +27,7 @@
 #include <QHostInfo>
 
 #include <KLocalizedString>
+#include <ItemFetchJob>
 
 #include <libdecsync.h>
 
@@ -278,8 +279,49 @@ void DecSyncResource::retrieveItems(const Akonadi::Collection &collection)
 
 void DecSyncResource::itemAdded(const Akonadi::Item &item, const Akonadi::Collection &collection)
 {
-    Q_UNUSED(item);
-    Q_UNUSED(collection);
+    Akonadi::ItemFetchJob *job = new Akonadi::ItemFetchJob(item);
+    connect(job, SIGNAL(result(KJob*)), SLOT(DecSyncResource::itemAddedWithPayload(KJob*)));
+    job->fetchScope().fetchFullPayload();
+}
+
+void DecSyncResource::itemAddedWithPayload(KJob* job)
+{
+    if (job->error()) {
+        qCWarning(log_decsyncresource, "couldn't add item: fetch job error");
+        return;
+    }
+
+    Akonadi::ItemFetchJob* fetchJob = qobject_cast<Akonadi::ItemFetchJob*>(job);
+    const Akonadi::Item &item = fetchJob->items().first();
+
+    const QString collectionId = collection.remoteId(),
+        syncType = collectionId.section(QPATHSEP, 0, 0),
+        collectionName = collectionId.section(QPATHSEP, 1, 1);
+
+    Decsync sync;
+    if (int error = decsync_new(
+            &sync, qUtf8Printable(Settings::self()->decSyncDirectory()),
+            qUtf8Printable(syncType), qUtf8Printable(collectionName), this->appId)) {
+        qCWarning(log_decsyncresource, "failed to create DecSync instance %s/%s: error %d",
+                  qUtf8Printable(syncType), qUtf8Printable(collectionName), error);
+    } else {
+        qCDebug(log_decsyncresource, "itemAdded with payload %s", item.payloadData().constData());
+        QJsonDocument doc;
+        doc.setArray({ QJsonValue(QString::fromUtf8(item.payloadData())) });
+        QByteArray json = doc.toJson(QJsonDocument::Compact);
+        // Remove leading '[' and trailing ']', ...
+        json.remove(0, 1).chop(1);
+        // ... so what's left is the JSON encoding of the new payload.
+
+        const QByteArray itemId = item.remoteId().toUtf8();
+#define PATH_LENGTH 2
+        const char* path[PATH_LENGTH] { "resources", itemId.constData() };
+        decsync_set_entry(sync, path, PATH_LENGTH, "null", json.constData());
+#undef PATH_LENGTH
+
+        changeCommitted(item);
+    }
+    decsync_free(sync);
 }
 
 void DecSyncResource::itemChanged(const Akonadi::Item &item, const QSet<QByteArray> &parts)
@@ -290,9 +332,27 @@ void DecSyncResource::itemChanged(const Akonadi::Item &item, const QSet<QByteArr
 
 void DecSyncResource::itemRemoved(const Akonadi::Item &item)
 {
-    Q_UNUSED(item);
+    const QString collectionId = item.parentCollection().remoteId(),
+        syncType = collectionId.section(QPATHSEP, 0, 0),
+        collectionName = collectionId.section(QPATHSEP, 1, 1);
 
-    // To delete a contact or calendar event, set its DecSync value to JSON null.
+    Decsync sync;
+    if (int error = decsync_new(
+            &sync, qUtf8Printable(Settings::self()->decSyncDirectory()),
+            qUtf8Printable(syncType), qUtf8Printable(collectionName), this->appId)) {
+        qCWarning(log_decsyncresource, "failed to create DecSync instance %s/%s: error %d",
+                  qUtf8Printable(syncType), qUtf8Printable(collectionName), error);
+    } else {
+        const QByteArray itemId = item.remoteId().toUtf8();
+#define PATH_LENGTH 2
+        const char* path[PATH_LENGTH] { "resources", itemId.constData() };
+        // To delete a contact or calendar event, set its DecSync value to JSON null.
+        decsync_set_entry(sync, path, PATH_LENGTH, "null", "null");
+#undef PATH_LENGTH
+
+        changeCommitted(item);
+    }
+    decsync_free(sync);
 }
 
 void DecSyncResource::collectionAdded(const Akonadi::Collection &collection,
@@ -305,8 +365,15 @@ void DecSyncResource::collectionAdded(const Akonadi::Collection &collection,
 void DecSyncResource::collectionChanged(const Akonadi::Collection &collection,
                                         const QSet<QByteArray> &changedAttributes)
 {
-    Q_UNUSED(collection);
-    Q_UNUSED(changedAttributes);
+    QByteArray attrs;
+    for (QSet<QByteArray>::const_iterator i = changedAttributes.constBegin();
+         i != changedAttributes.constEnd(); ++i) {
+        attrs += '/';
+        attrs += *i;
+    }
+
+    qCDebug(log_decsyncresource, "collectionChanged(%p, %s)",
+            qUtf8Printable(collection.remoteId()), attrs.constData());
 }
 
 void DecSyncResource::collectionRemoved(const Akonadi::Collection &collection)

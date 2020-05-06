@@ -81,6 +81,8 @@ protected:
 
 private:
     char appId[APPID_LENGTH];
+
+    void itemAddedWithPayload(KJob* job);
 };
 
 #endif
