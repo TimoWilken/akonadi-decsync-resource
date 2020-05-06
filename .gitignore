@@ -1,13 +1,15 @@
-bin/
-build/
+/bin/
+/build/
 *_autogen/
 
 ecm_uninstall.cmake
 prefix.sh
-src/debug.cpp
-src/debug.h
-src/org.kde.Akonadi.*.Settings.xml
-src/settingsadaptor.moc_parameters
+/src/debug.cpp
+/src/debug.h
+/src/org.kde.Akonadi.*.Settings.xml
+/src/settingsadaptor.moc_parameters
+
+test/testenv.sh
 
 # CMake cache files etc.
 # from https://github.com/github/gitignore/blob/master/CMake.gitignore

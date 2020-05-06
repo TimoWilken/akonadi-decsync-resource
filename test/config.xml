@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- See https://techbase.kde.org/KDE_PIM/Akonadi/Testing -->
+<config>
+  <!-- Alternative $KDEHOME for KDE configuration -->
+  <kdehome>kdehome</kdehome>
+  <!-- Akonadi config, usually ~/.config/akonadi/ -->
+  <confighome>xdgconfig</confighome>
+  <!-- Akonadi data, usually ~/.local/share/akonadi/ -->
+  <datahome>xdgdata</datahome>
+  <!-- load these resources -->
+  <agent synchronize="true">akonadi_decsync_resource</agent>
+  <!-- environment variables -->
+  <envvar name="AKONADI_DISABLE_AGENT_AUTOSTART">true</envvar>
+  <envvar name="PATH">/home/timo/src/akonadi-decsync/decsync/test/xdgdata/bin:/usr/local/bin:/usr/bin:/usr/lib/jvm/default/bin</envvar>
+</config>
