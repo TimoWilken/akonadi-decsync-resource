@@ -18,6 +18,8 @@ This is an Akonadi resource that lets KDE PIM applications like [[https://kde.or
 
 * How to build this project
 
+Arch Linux users can install the [[https://aur.archlinux.org/packages/akonadi-decsync-resource-git/][=akonadi-decsync-resource-git= AUR package]].
+
 This resource uses the C bindings to [[https://github.com/39aldo39/libdecsync][libdecsync]], so you'll need to install the library and its headers. Qt \ge5.11.0, KDE Frameworks \ge5.38.0 and Akonadi \ge5.2 are required, too.
 
 #+BEGIN_SRC sh
