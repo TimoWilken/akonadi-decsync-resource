@@ -36,8 +36,15 @@ const QList<const char*> COLLECTION_TYPES { "calendars", "contacts" };
 struct ItemListAndMime {
     Akonadi::Item::List &items;
     const QString mime;
-    ItemListAndMime(Akonadi::Item::List &list, const QString mimetype)
+    explicit ItemListAndMime(Akonadi::Item::List &list, const QString mimetype)
         : items{list}, mime{mimetype} {}
+};
+
+struct SingleItemUpdate {
+    bool itemRemoved = false;
+    Akonadi::Item* itemToUpdate;
+    explicit SingleItemUpdate(Akonadi::Item* item)
+        : itemToUpdate{item} {}
 };
 
 class DecSyncResource : public Akonadi::ResourceBase,
@@ -57,10 +64,9 @@ protected:
 protected Q_SLOTS:
     void retrieveCollections() override;
     void retrieveItems(const Akonadi::Collection &collection) override;
+    bool retrieveItems(const Akonadi::Item::List &items, const QSet<QByteArray> &parts) override;
 
 protected:
-    using Akonadi::ResourceBase::retrieveItems;
-
     void aboutToQuit() override;
 
     void itemAdded(const Akonadi::Item &item,

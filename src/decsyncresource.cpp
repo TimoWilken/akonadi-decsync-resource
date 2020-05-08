@@ -117,6 +117,18 @@ const QStringList appropriateMimetypes(const char* collectionType)
     }
 }
 
+/**
+ * Decodes the given string containing a JSON value. The value may be any valid
+ * JSON, not just an array or object that QJsonDocument accepts.
+ */
+const QJsonValue jsonDecode(const char* value)
+{
+    // Wrap value in [ ] so QJsonDocument can decode it -- it only takes arrays or objects.
+    const QByteArray arrayified = QByteArray(value).prepend('[').append(']');
+    const QJsonValue payload = QJsonDocument::fromJson(arrayified).array().first();
+    return payload;
+}
+
 void DecSyncResource::retrieveCollections()
 {
     Akonadi::Collection::List collections;
@@ -182,11 +194,7 @@ void DecSyncResource::retrieveCollections()
             decsync_get_static_info(
                 qUtf8Printable(Settings::self()->decSyncDirectory()),
                 type, names[i], "\"name\"", friendlyName, FRIENDLY_NAME_LENGTH);
-
-            // friendlyName contains a JSON-encoded string, not the actual
-            // value! Wrap it in [ ] so QJsonDocument can decode it.
-            QByteArray array = QByteArray(friendlyName).prepend('[').append(']');
-            coll.setName(QJsonDocument::fromJson(array).array().first().toString());
+            coll.setName(jsonDecode(friendlyName).toString());
 
             collections << coll;
 
@@ -200,10 +208,7 @@ void DecSyncResource::retrieveCollections()
 void onEntryUpdate(const char** path, const int len, const char* datetime,
                    const char* key, const char* value, void* extra)
 {
-    // value contains a JSON-encoded string, not the actual value!
-    // Wrap it in [ ] so QJsonDocument can decode it.
-    QByteArray arrayified = QByteArray(value).prepend('[').append(']');
-    QJsonValue payload = QJsonDocument::fromJson(arrayified).array().first();
+    const QJsonValue payload = jsonDecode(value);
     if (payload.isNull()) {
         // This item is deleted. Do nothing.
         return;
@@ -261,6 +266,64 @@ void DecSyncResource::retrieveItems(const Akonadi::Collection &collection)
 
     decsync_free(sync);
     itemsRetrieved(items);
+}
+
+void onSingleItemUpdate(const char** path, const int len, const char* datetime, const char* key,
+                        const char* value, void* extra)
+{
+    Q_UNUSED(path);
+    Q_UNUSED(len);
+    Q_UNUSED(datetime);
+    Q_UNUSED(key);
+
+    SingleItemUpdate* info = static_cast<SingleItemUpdate*>(extra);
+
+    const QJsonValue payload = jsonDecode(value);
+    if (payload.isNull()) {
+        // This item is deleted.
+        info->itemRemoved = true;
+        return;
+    }
+
+    info->itemToUpdate->setPayloadFromData(payload.toString().toUtf8());
+}
+
+bool DecSyncResource::retrieveItems(const Akonadi::Item::List &items, const QSet<QByteArray> &parts)
+{
+    qCDebug(log_decsyncresource, "retrieveItems: <want parts>");
+    for (const QByteArray &part : parts) {
+        qCDebug(log_decsyncresource, "retrieveItems: \t%s", part.constData());
+    }
+    qCDebug(log_decsyncresource, "retrieveItems: </want parts>");
+
+    /*
+    // It is guaranteed that all items in the list belong to the same Collection.
+    const Akonadi::Collection coll = items.first().parentCollection();
+    const QList<QByteArray> components = coll.remoteId().toUtf8().split(PATHSEP);
+    const char* collType = components[0].constData();
+    const char* collName = components[1].constData();
+
+    Decsync sync;
+    decsync_new(&sync, qUtf8Printable(Settings::self()->decSyncDirectory()),
+                collType, collName, this->appId);
+
+    for (Akonadi::Item::List::iterator i = items.begin(); i != items.end(); ++i) {
+        const QByteArray itemName = i->remoteId().toUtf8();
+
+#define PATH_LENGTH 2
+        const char* path[PATH_LENGTH] { "resources", itemName.constData() };
+        decsync_add_listener(sync, path, PATH_LENGTH, onSingleItemUpdate);
+
+        SingleItemUpdate info(i);
+        decsync_execute_stored_entry(sync, path, PATH_LENGTH, "null", &info);
+#undef PATH_LENGTH
+
+    }
+
+    decsync_free(sync);
+    */
+    itemsRetrieved(items);
+    return true;
 }
 
 /*
