@@ -9,7 +9,8 @@ prefix.sh
 /src/org.kde.Akonadi.*.Settings.xml
 /src/settingsadaptor.moc_parameters
 
-test/testenv.sh
+/test/testenv.sh
+/test/xdgdata/decsync
 
 # CMake cache files etc.
 # from https://github.com/github/gitignore/blob/master/CMake.gitignore
