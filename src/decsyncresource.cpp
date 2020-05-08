@@ -126,9 +126,8 @@ void DecSyncResource::retrieveCollections()
         return;
     }
 
-    for (QList<const char*>::const_iterator type = COLLECTION_TYPES.constBegin();
-         type != COLLECTION_TYPES.constEnd(); ++type) {
-        const QString qTypeName = QString::fromUtf8(*type);
+    for (const char* type : COLLECTION_TYPES) {
+        const QString qTypeName = QString::fromUtf8(type);
 
         Akonadi::Collection parentColl;
         parentColl.setParentCollection(Akonadi::Collection::root());
@@ -155,33 +154,34 @@ void DecSyncResource::retrieveCollections()
 
         int collectionsFound = decsync_list_decsync_collections(
             qUtf8Printable(Settings::self()->decSyncDirectory()),
-            *type, names, MAX_COLLECTIONS);
+            type, names, MAX_COLLECTIONS);
         qCDebug(log_decsyncresource, "found %d/%d collections for %s",
-                collectionsFound, MAX_COLLECTIONS, *type);
+                collectionsFound, MAX_COLLECTIONS, type);
 
         for (int i = 0; i < collectionsFound; ++i) {
-            qCDebug(log_decsyncresource, "initialize %s collection %s", *type, names[i]);
+            qCDebug(log_decsyncresource, "initialize %s collection %s", type, names[i]);
             Decsync sync;
             if (int error = decsync_new(
                     &sync, qUtf8Printable(Settings::self()->decSyncDirectory()),
-                    *type, names[i], this->appId)) {
+                    type, names[i], this->appId)) {
                 qCWarning(log_decsyncresource,
                           "failed to initialize DecSync %s collection %s: error %d",
-                          *type, names[i], error);
+                          type, names[i], error);
                 continue;
             }
+            decsync_init_stored_entries(sync);
 
             // TODO: Read calendar colour from static info.
             Akonadi::Collection coll;
             coll.setParentCollection(parentColl);
             coll.setRemoteId(qTypeName + QPATHSEP + QString::fromUtf8(names[i]));
-            coll.setContentMimeTypes(appropriateMimetypes(*type));
+            coll.setContentMimeTypes(appropriateMimetypes(type));
             coll.setRights(Akonadi::Collection::Right::ReadOnly);
 
             char friendlyName[FRIENDLY_NAME_LENGTH];
             decsync_get_static_info(
                 qUtf8Printable(Settings::self()->decSyncDirectory()),
-                *type, names[i], "\"name\"", friendlyName, FRIENDLY_NAME_LENGTH);
+                type, names[i], "\"name\"", friendlyName, FRIENDLY_NAME_LENGTH);
 
             // friendlyName contains a JSON-encoded string, not the actual
             // value! Wrap it in [ ] so QJsonDocument can decode it.
@@ -253,7 +253,6 @@ void DecSyncResource::retrieveItems(const Akonadi::Collection &collection)
 #define PATH_LENGTH 1
     const char* path[PATH_LENGTH] { "resources" };
     decsync_add_listener(sync, path, PATH_LENGTH, onEntryUpdate);
-    decsync_init_stored_entries(sync);
 
     Akonadi::Item::List items;
     ItemListAndMime info(items, appropriateMimetypes(collType).first());
